@@ -1,4 +1,11 @@
 
+
+DEPLIBS  := 
+
+LDLIBS  :=  -lpthread
+
+CC		:= gcc
+
 mkfile_path := $(abspath $(lastword $(MAKEFILE_LIST)))
 current_dir := $(dir $(mkfile_path))
 NAME    :=  $(notdir $(patsubst %/,%,$(dir $(mkfile_path))))
@@ -19,29 +26,31 @@ DDIR    :=  $(current_dir)/dobj
 DOBJ    :=  $(SRC:$(current_dir)/%.c=$(DDIR)/%.o)
 CFLAGS  :=  -Wall
 #-ansi -pedantic -Wall -Werror -W -g3
-LDFLAGS :=  -L$(SLDIR)
-LDLIBS  :=  -lpthread
+SLDFLAGS :=  -L$(SLDIR)
+DLDFLAGS :=  -L$(DLDIR)
 INC		:=  -I$(current_dir)/../ -I.
 
-CC		:= gcc
+DDEPLIBS := $(DEPLIBS:-l%=$(DLDIR)/lib%.so)
+SDEPLIBS := $(DEPLIBS:-l%=$(SLDIR)/lib%.a)
+LIBDIRS := $(DEPLIBS:-l%=$(current_dir)/../%)
 
 .PHONY: all clean fclean rebuild c_lib_static c_lib_dynamic c_app
 
-all: c_lib_static c_lib_dynamic c_app
+all: c_lib_static c_app
 
 c_lib_static: $(SNAME)
 
 c_lib_dynamic: $(DNAME)
 
-c_app : $(BIN)
+c_app: $(BIN)
 
 $(SNAME): $(SOBJ) | $(SLDIR)
 	$(AR) $(ARFLAGS) $@ $^
 
 $(DNAME): CFLAGS += -fPIC
-$(DNAME): LDFLAGS += -shared
-$(DNAME): $(DOBJ) | $(DLDIR)
-	$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
+$(DNAME): DLDFLAGS += -shared
+$(DNAME): $(DOBJ) | $(DLDIR) $(DDEPLIBS)
+	$(CC) $(DLDFLAGS) $^ $(LDLIBS) $(DEPLIBS) -o $@
 
 $(SOBJ): $(SRC) | $(SDIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ -c $<
@@ -52,16 +61,26 @@ $(DOBJ): $(SRC) | $(DDIR)
 $(SDIR) $(DDIR) $(SLDIR) $(DLDIR):
 	@mkdir -p $@
 
-$(BIN): $(AOBJ) | $(SNAME)
-	$(CC) $(INC) $(CPPFLAGS) $(CFLAGS) $(LDLIBS) $(LDFLAGS) -o $@ $< -l$(NAME)
+$(DDEPLIBS): $(LIBDIRS)
+	@make -C $< c_lib_dynamic
+	
+
+$(BIN): $(AOBJ) | $(SNAME) $(SDEPLIBS)
+	$(CC) $(INC) $(CPPFLAGS) $(CFLAGS) $(LDLIBS) $(DEPLIBS) $(SLDFLAGS) -o $@ $< -l$(NAME)
 
 $(AOBJ): $(APP_SRC)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ -c $<
 
+$(SDEPLIBS): $(LIBDIRS)
+	@make -C $< c_lib_static
+
+$(LIBDIRS):
+	@echo "$@ : No such file or directory."
+
 clean:
-	$(RM) -rf $(SDIR) $(DDIR)
-	$(RM) -f $(BIN)
-	$(RM) -f $(AOBJ)
+	$(RM) -r $(SDIR) $(DDIR)
+	$(RM) $(BIN)
+	$(RM) $(AOBJ)
 
 print:
 	@echo "SLDIR : $(SLDIR)"
@@ -70,6 +89,10 @@ print:
 	@echo "ALL_SRC : $(ALL_SRC)"
 	@echo "SRC : $(SRC)"
 	@echo "SOBJ : $(SOBJ)"
+	@echo "DEPLIBS : $(DEPLIBS)"
+	@echo "DDEPLIBS : $(DDEPLIBS)"
+	@echo "SDEPLIBS : $(SDEPLIBS)"
+	@echo "LIBDIRS : $(LIBDIRS)"
 	
 
 fclean: clean
