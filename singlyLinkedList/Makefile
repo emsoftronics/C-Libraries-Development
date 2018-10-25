@@ -2,9 +2,10 @@
 
 DEPLIBS  := 
 
-LDLIBS  :=  -lpthread
+LDLIBS  :=  -pthread
 
 CC		:= gcc
+CFLAGS  :=  -Wall 
 
 mkfile_path := $(abspath $(lastword $(MAKEFILE_LIST)))
 current_dir := $(dir $(mkfile_path))
@@ -24,7 +25,6 @@ SDIR    :=  $(current_dir)/sobj
 SOBJ    :=  $(SRC:$(current_dir)/%.c=$(SDIR)/%.o)
 DDIR    :=  $(current_dir)/dobj
 DOBJ    :=  $(SRC:$(current_dir)/%.c=$(DDIR)/%.o)
-CFLAGS  :=  -Wall
 #-ansi -pedantic -Wall -Werror -W -g3
 SLDFLAGS :=  -L$(SLDIR)
 DLDFLAGS :=  -L$(DLDIR)

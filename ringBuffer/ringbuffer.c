@@ -24,6 +24,7 @@
 ringbuf_t *rb_create(size_t maxblocks, size_t blocksize)
 {
     pthread_mutexattr_t attr;
+
     ringbuf_t *rb = NULL;
     if (!maxblocks || !blocksize) return NULL;
     rb = calloc(1, sizeof(ringbuf_t));
