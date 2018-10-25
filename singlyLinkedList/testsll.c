@@ -32,6 +32,7 @@ static int mycomp(sliteminfo_t *x, sliteminfo_t *y)
 int main(int argc, char **argv)
 {
     char buffer[20];
+    char *tmp;
     int length = 0;
     int choice, i;
 
@@ -68,8 +69,8 @@ int main(int argc, char **argv)
                 break;
             case 5:
                 i = 0;
-                for (length = sll_getListItem(ITEM_BEGIN, &list, buffer, 0); length > 0;
-                        length = sll_getListItem(ITEM_NEXT, &list, buffer, 0)) printf(" %d. %s\n", ++i, buffer);
+                for (tmp = sll_getListItem(ITEM_BEGIN, &list, 0, 0); tmp != NULL;
+                        tmp = sll_getListItem(ITEM_NEXT, &list, 0, 0)) printf(" %d. %s\n", ++i, tmp);
                 fflush(stdout);
                 break;
             case 6:

@@ -12,12 +12,10 @@
 int sll_addToList(slist_t *list, void *data, unsigned int data_length, int data_type)
 {
     struct sll_node *tmp = NULL;
-    void *mem = NULL;
     if ((!data) || (!list)) return -EINVAL;
-    mem = malloc(data_length + sizeof(struct sll_node));
-    if (!mem) return -ENOMEM;
-    memcpy(mem, data, data_length);
-    tmp = (struct sll_node *)((char*)mem + data_length);
+    tmp = (struct sll_node *)malloc(sizeof(struct sll_node) + data_length);
+    if (!tmp) return -ENOMEM;
+    memcpy((char *)tmp + sizeof(struct sll_node), data, data_length);
     tmp->item_length = data_length;
     tmp->item_type = data_type;
     tmp->next = NULL;
@@ -58,29 +56,28 @@ int sll_addAtTail(slist_t *list, void *data, unsigned int data_length, int data_
 
 int sll_removeFromHead(slist_t *list, void *outbuf, int *data_type)
 {
-    void *mem = NULL;
     int length = 0;
+    void *tmp = NULL;
     if (!list) return -EINVAL;
     if (!list->first_entry) return -ENOENT;
     pthread_mutex_lock(&list->lock);
-    mem = ((char*)list->first_entry) - list->first_entry->item_length;
     if (outbuf) {
-        memcpy(outbuf, mem, list->first_entry->item_length);
+        memcpy(outbuf, ((char*)list->first_entry) + sizeof(struct sll_node), list->first_entry->item_length);
         length = list->first_entry->item_length;
     }
     if (data_type) {
         *data_type = list->first_entry->item_type;
     }
+    tmp = list->first_entry;
     list->first_entry = list->first_entry->next;
     list->item_count--;
     pthread_mutex_unlock(&list->lock);
-    free(mem);
+    free(tmp);
     return length;
 }
 
 int sll_removeFromTail(slist_t *list, void *outbuf, int *data_type)
 {
-    void *mem = NULL;
     int length = 0;
     struct sll_node *tmp = NULL;
     if (!list) return -EINVAL;
@@ -98,9 +95,8 @@ int sll_removeFromTail(slist_t *list, void *outbuf, int *data_type)
         tmp = list->last_entry->next;
         list->last_entry->next = NULL;
     }
-    mem = ((char*)tmp) - tmp->item_length;
     if (outbuf) {
-        memcpy(outbuf, mem, tmp->item_length);
+        memcpy(outbuf, ((char*)tmp) + sizeof(struct sll_node), tmp->item_length);
         length = tmp->item_length;
     }
     if (data_type) {
@@ -108,7 +104,7 @@ int sll_removeFromTail(slist_t *list, void *outbuf, int *data_type)
     }
     list->item_count--;
     pthread_mutex_unlock(&list->lock);
-    free(mem);
+    free(tmp);
     return length;
 }
 
@@ -158,8 +154,8 @@ int sll_sortList(slist_t *list, compare_t compare, int reverse)
         swap = 0;
         cinfo = *((sliteminfo_t *)cur);
         ninfo = *((sliteminfo_t *)cur->next);
-        cinfo.item = (char *)cur - cur->item_length;
-        ninfo.item = (char *)(cur->next) - cur->next->item_length;
+        cinfo.item = (char *)cur + sizeof(struct sll_node);
+        ninfo.item = (char *)(cur->next) + sizeof(struct sll_node);
         if (compare) {
             comp = compare(&cinfo, &ninfo);
             if (((comp > 0) && (!reverse)) || ((comp < 0) && reverse)) swap = 1;
@@ -180,7 +176,7 @@ int sll_sortList(slist_t *list, compare_t compare, int reverse)
     return 0;
 }
 
-int sll_getListItem(sllist_traverse_t cmd, slist_t *list,void *outbuf, int *data_type)
+void *sll_getListItem(sllist_traverse_t cmd, slist_t *list, int *item_size, int *data_type)
 {
     static struct sll_node *tmp = NULL;
     static struct sll_node *head = NULL;
@@ -190,8 +186,8 @@ int sll_getListItem(sllist_traverse_t cmd, slist_t *list,void *outbuf, int *data
     int ret = 0;
 
 
-    if (!list) return -EINVAL;
-    if (!list->first_entry) return -ENOENT;
+    if (!list) {errno = EINVAL; return NULL;}
+    if (!list->first_entry) {errno = ENOENT; return NULL;}
 
     pthread_mutex_lock(&list->lock);
     if ((head != list->first_entry) || (count != list->item_count)) {
@@ -219,19 +215,16 @@ int sll_getListItem(sllist_traverse_t cmd, slist_t *list,void *outbuf, int *data
         default: ret = -EINVAL;
     }
 
-    if(ret < 0);
-    else if (!t) ret =  -EEXIST;
+    if(ret < 0) errno = - ret;
+    else if (!t) errno =  ENOENT;
     else {
-        if (outbuf) {
-            mem = ((char *)t) - t->item_length;
-            memcpy(outbuf, mem, t->item_length);
-        }
+        mem = ((char *)t) + sizeof(struct sll_node);
+        if (item_size) *item_size = t->item_length;
 
         if (data_type) *data_type = t->item_type;
-        ret = t->item_length;
     }
     pthread_mutex_unlock(&list->lock);
-    return ret;
+    return mem;
 }
 
 int sll_push(slstack_t *stack, void *data, unsigned int data_length, int data_type)
@@ -272,12 +265,12 @@ int sll_itemCount(slist_t *list)
 int sll_clear(slist_t *list)
 {
     struct sll_node *tmp = NULL;
-    void *mem = NULL;
+    void *mem;
     if (!list) return -EINVAL;
     pthread_mutex_lock(&list->lock);
     tmp = list->first_entry;
     while (tmp != NULL) {
-        mem = (char *)tmp - tmp->item_length;
+        mem = tmp;
         tmp = tmp->next;
         free(mem);
     }

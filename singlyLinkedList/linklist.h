@@ -77,7 +77,7 @@ extern int sll_removeFromHead(slist_t *list, void *outbuf, int *data_type);
 extern int sll_removeFromTail(slist_t *list, void *outbuf, int *data_type);
 extern int sll_getListItemCount(slist_t *list);
 extern int sll_sortList(slist_t *list, compare_t compare, int reverse);
-extern int sll_getListItem(sllist_traverse_t cmd, slist_t *list,void *outbuf, int *data_type);
+extern void *sll_getListItem(sllist_traverse_t cmd, slist_t *list, int *item_size, int *data_type);
 extern int sll_push(slstack_t *stack, void *data, unsigned int data_length, int data_type);
 extern int sll_pop(slstack_t *stack, void *outbuf, int *data_type);
 extern int sll_enqueue(slqueue_t *queue, void *data, unsigned int data_length, int data_type);
