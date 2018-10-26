@@ -22,11 +22,11 @@
 #include <string.h>
 #define UNUSED(x)   (void)(x);
 
-static slist_t list = SLLIST_INITIALIZER;
+static slist_ref_t list;
 
-static int mycomp(sliteminfo_t *x, sliteminfo_t *y)
+static int mycomp(void *x, void *y)
 {
-    return strcmp(x->item,y->item);
+    return strcmp(x,y);
 }
 
 int main(int argc, char **argv)
@@ -35,6 +35,9 @@ int main(int argc, char **argv)
     char *tmp;
     int length = 0;
     int choice, i;
+
+    list = sll_createList(SORTED_NONE, NULL);
+    if (!list) {perror("sll_createList"); return 1;}
 
     UNUSED(argc);
     UNUSED(argv);
@@ -52,44 +55,44 @@ int main(int argc, char **argv)
             case 1:
                 printf("Enter string to add at head in list: ");
                 scanf(" %[^\n]", buffer);
-                sll_addAtHead(&list, buffer, sizeof(buffer), 0);
+                sll_addAtHead(list, buffer, sizeof(buffer), 0);
                 break;
             case 2:
                 printf("Enter string to add at tail in list: ");
                 scanf(" %[^\n]", buffer);
-                sll_addAtTail(&list, buffer, sizeof(buffer), 0);
+                sll_addAtTail(list, buffer, sizeof(buffer), 0);
                 break;
             case 3:
-                length = sll_removeFromHead(&list, buffer, 0);
+                length = sll_removeFromHead(list, buffer, 0);
                 printf("removed string from head with buffer size %d: %s\n", length, buffer);
                 break;
             case 4:
-                length = sll_removeFromTail(&list, buffer, 0);
+                length = sll_removeFromTail(list, buffer, 0);
                 printf("removed string from tail with buffer size %d: %s\n", length, buffer);
                 break;
             case 5:
                 i = 0;
-                for (tmp = sll_getListItem(ITEM_BEGIN, &list, 0, 0); tmp != NULL;
-                        tmp = sll_getListItem(ITEM_NEXT, &list, 0, 0)) printf(" %d. %s\n", ++i, tmp);
+                for (tmp = sll_getListItem(ITEM_BEGIN, list, 0, 0); tmp != NULL;
+                        tmp = sll_getListItem(ITEM_NEXT, list, 0, 0)) printf(" %d. %s\n", ++i, tmp);
                 fflush(stdout);
                 break;
             case 6:
-                sll_sortList(&list, mycomp, 0);
+                sll_sortList(list, mycomp, 0);
                 printf("sorting done in ascending order!!\n");
                 break;
             case 7:
-                sll_sortList(&list, mycomp, 1);
+                sll_sortList(list, mycomp, 1);
                 printf("sorting done in descending order!!\n");
                 break;
             case 8:
-                printf("Total items in list :  %d\n", sll_getListItemCount(&list));
+                printf("Total items in list :  %d\n", sll_getListItemCount(list));
                 break;
             case 9:
-                sll_clear(&list);
+                sll_clear(list);
                 printf("List is cleared!!\n");
                 break;
             case 10:
-                sll_clear(&list);
+                sll_destroyList(list);
                 exit(0);
                 break;
         }
