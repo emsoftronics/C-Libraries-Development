@@ -24,8 +24,9 @@ struct sll_list {
     struct sll_node *first_entry;
     struct sll_node *last_entry;
     unsigned int item_count;
-    unsigned short sorted_flag;
-    unsigned short data_struct;
+    unsigned int auto_inc_id_trace;
+    unsigned int sorted_flag;
+    unsigned int data_struct;
     compare_t item_compare;
     pthread_mutex_t lock;
 };
@@ -50,6 +51,7 @@ slist_ref_t sll_createList(sllist_sort_type_t sort_type, compare_t compare_handl
     }
     list->first_entry = list->last_entry = NULL;
     list->item_count = 0;
+    list->auto_inc_id_trace = 0;
     list->sorted_flag = (compare_handler)? sort_type : SORTED_NONE;
     list->item_compare = compare_handler;
     list->data_struct = 0;
@@ -121,8 +123,14 @@ static int sll_addToList(slist_ref_t slist, void *data, unsigned int data_length
         list->last_entry = tmp;
     }
     list->item_count++;
-    //list->last_entry->item_id = (list->data_struct)? 0 : list->item_count;
-    //ret = list->last_entry->item_id;
+    list->last_entry->item_id = 0;
+    if (!list->data_struct) {
+        if (list->auto_inc_id_trace < (unsigned int)(-1)) {
+            list->auto_inc_id_trace++;
+            list->last_entry->item_id = list->auto_inc_id_trace;
+        }
+    }
+    ret = list->last_entry->item_id;
     pthread_mutex_unlock(&list->lock);
     return ret;
 }
@@ -134,7 +142,8 @@ int sll_addAtHead(slist_ref_t slist, void *data, unsigned int data_length, int d
     struct sll_list temp = {.first_entry = NULL,
                             .last_entry = NULL,
                             .lock = PTHREAD_MUTEX_INITIALIZER,
-                            .item_count = 0};
+                            .item_count = 0,
+                            .auto_inc_id_trace = 0};
     if ((!list) || (!data)) return -EINVAL;
     ret = sll_addToList(&temp, data, data_length, data_type);
     if (ret < 0) return ret;
@@ -144,8 +153,14 @@ int sll_addAtHead(slist_ref_t slist, void *data, unsigned int data_length, int d
     list->first_entry = temp.first_entry;
     if (!list->last_entry) list->last_entry = list->first_entry;
     list->item_count++;
-    //list->first_entry->item_id = (list->data_struct)? 0 : list->item_count;
-    //ret = list->first_entry->item_id;
+    list->first_entry->item_id = 0;
+    if (!list->data_struct) {
+        if (list->auto_inc_id_trace < (unsigned int)(-1)) {
+            list->auto_inc_id_trace++;
+            list->first_entry->item_id = list->auto_inc_id_trace;
+        }
+    }
+    ret = list->first_entry->item_id;
     pthread_mutex_unlock(&list->lock);
     return ret;
 }
@@ -343,6 +358,7 @@ slstack_ref_t sll_createStack(int max_limit)
     }
     stack->list.first_entry = stack->list.last_entry = NULL;
     stack->list.item_count = 0;
+    stack->list.auto_inc_id_trace = 0;
     stack->list.sorted_flag = 0;
     stack->list.item_compare = NULL;
     stack->list.data_struct = 1;
@@ -391,6 +407,7 @@ slqueue_ref_t sll_createQueue(int max_limit)
     }
     queue->list.first_entry = queue->list.last_entry = NULL;
     queue->list.item_count = 0;
+    queue->list.auto_inc_id_trace = 0;
     queue->list.sorted_flag = 0;
     queue->list.item_compare = NULL;
     queue->list.data_struct = 2;
