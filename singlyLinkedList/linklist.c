@@ -7,7 +7,8 @@
 #include <string.h>
 #include <pthread.h>
 #include "linklist.h"
-#define SIGNED_MAX_VAL(x) ((typeof(x))(1) << ((sizeof(x)<<3)-1))
+#define SIGNED_MAX_VAL(x) ((typeof(x))(((typeof(x))(~(0))) >> 1))
+//#define SIGNED_MAX_VAL(x) ((typeof(x))(1) << ((sizeof(x)<<3)-1))
 struct sll_list;
 struct sll_stack;
 struct sll_queue;
@@ -262,6 +263,7 @@ int sll_removeFromHead(slist_ref_t slist, void *outbuf, int *data_type)
     free(tmp);
     return length;
 }
+
 
 int sll_removeFromTail(slist_ref_t slist, void *outbuf, int *data_type)
 {
