@@ -36,7 +36,7 @@ int main(int argc, char **argv)
     int length = 0;
     int choice, i;
 
-    list = sll_createList(SORTED_NONE, NULL);
+    list = sll_createList(SORTED_NONE, mycomp);
     if (!list) {perror("sll_createList"); return 1;}
 
     UNUSED(argc);
@@ -77,11 +77,11 @@ int main(int argc, char **argv)
                 fflush(stdout);
                 break;
             case 6:
-                sll_sortList(list, mycomp, 0);
+                sll_sortList(list, SORTED_BY_DCF);
                 printf("sorting done in ascending order!!\n");
                 break;
             case 7:
-                sll_sortList(list, mycomp, 1);
+                sll_sortList(list, SORTED_REV_BY_DCF);
                 printf("sorting done in descending order!!\n");
                 break;
             case 8:

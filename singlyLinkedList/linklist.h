@@ -1,7 +1,6 @@
 
 #ifndef __LINKLIST_H__
 #define __LINKLIST_H__
-#include <pthread.h>
 
 typedef enum {
     ITEM_BEGIN  = 0,
@@ -12,9 +11,11 @@ typedef enum {
 } sllist_traverse_t;
 
 typedef enum {
-    SORTED_NONE     = 0,
-    SORTED_BY_ID    = 1,
-    SORTED_BY_DCF   = 2,
+    SORTED_REV_BY_DCF   = -2,
+    SORTED_REV_BY_ID    = -1,
+    SORTED_NONE         = 0,
+    SORTED_BY_ID        = 1,
+    SORTED_BY_DCF       = 2,
 } sllist_sort_type_t;
 
 
@@ -26,15 +27,26 @@ typedef int (*compare_t)(void *, void*); /* return 0 => equal, -1 => less, 1 => 
 
 extern slist_ref_t sll_createList(sllist_sort_type_t sort_type, compare_t compare_handler);
 extern void sll_destroyList(slist_ref_t list);
+
 extern int sll_itemCount(slist_ref_t list);
 extern int sll_clear(slist_ref_t list);
+
+extern int sll_addToList(slist_ref_t list, void *data, unsigned int data_length, int data_type);
+
 extern int sll_addAtHead(slist_ref_t list, void *data, unsigned int data_length, int data_type);
 extern int sll_addAtTail(slist_ref_t list, void *data, unsigned int data_length, int data_type);
+
 extern int sll_removeFromHead(slist_ref_t list, void *outbuf, int *data_type);
 extern int sll_removeFromTail(slist_ref_t list, void *outbuf, int *data_type);
+extern int sll_removeById(slist_ref_t slist, int id, void *outbuf, int *data_type);
+
 extern int sll_getListItemCount(slist_ref_t list);
-extern int sll_sortList(slist_ref_t list, compare_t compare, int reverse);
+extern void *sll_getDataRefById(slist_ref_t slist, int id);
+extern int sll_getIdByDataRef(void *data);
+extern int sll_sortList(slist_ref_t list, sllist_sort_type_t sort_type);
 extern void *sll_getListItem(sllist_traverse_t cmd, slist_ref_t list, int *item_size, int *data_type);
+
+
 
 extern slstack_ref_t sll_createStack(int max_limit);
 extern void sll_destroyStack(slstack_ref_t stack);

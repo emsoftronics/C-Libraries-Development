@@ -7,7 +7,7 @@
 #include <string.h>
 #include <pthread.h>
 #include "linklist.h"
-
+#define SIGNED_MAX_VAL(x) ((typeof(x))(1) << ((sizeof(x)<<3)-1))
 struct sll_list;
 struct sll_stack;
 struct sll_queue;
@@ -25,7 +25,7 @@ struct sll_list {
     struct sll_node *last_entry;
     unsigned int item_count;
     unsigned int auto_inc_id_trace;
-    unsigned int sorted_flag;
+    signed int   sorted_flag;
     unsigned int data_struct;
     compare_t item_compare;
     pthread_mutex_t lock;
@@ -102,7 +102,8 @@ int sll_clear(slist_ref_t slist)
     return 0;
 }
 
-static int sll_addToList(slist_ref_t slist, void *data, unsigned int data_length, int data_type)
+
+int sll_addAtTail(slist_ref_t slist, void *data, unsigned int data_length, int data_type)
 {
     struct sll_list *list = slist;
     struct sll_node *tmp = NULL;
@@ -125,7 +126,7 @@ static int sll_addToList(slist_ref_t slist, void *data, unsigned int data_length
     list->item_count++;
     list->last_entry->item_id = 0;
     if (!list->data_struct) {
-        if (list->auto_inc_id_trace < (unsigned int)(-1)) {
+        if (list->auto_inc_id_trace < SIGNED_MAX_VAL(list->auto_inc_id_trace)) {
             list->auto_inc_id_trace++;
             list->last_entry->item_id = list->auto_inc_id_trace;
         }
@@ -145,7 +146,7 @@ int sll_addAtHead(slist_ref_t slist, void *data, unsigned int data_length, int d
                             .item_count = 0,
                             .auto_inc_id_trace = 0};
     if ((!list) || (!data)) return -EINVAL;
-    ret = sll_addToList(&temp, data, data_length, data_type);
+    ret = sll_addAtTail(&temp, data, data_length, data_type);
     if (ret < 0) return ret;
 
     pthread_mutex_lock(&list->lock);
@@ -155,7 +156,7 @@ int sll_addAtHead(slist_ref_t slist, void *data, unsigned int data_length, int d
     list->item_count++;
     list->first_entry->item_id = 0;
     if (!list->data_struct) {
-        if (list->auto_inc_id_trace < (unsigned int)(-1)) {
+        if (list->auto_inc_id_trace < SIGNED_MAX_VAL(list->auto_inc_id_trace)) {
             list->auto_inc_id_trace++;
             list->first_entry->item_id = list->auto_inc_id_trace;
         }
@@ -165,9 +166,78 @@ int sll_addAtHead(slist_ref_t slist, void *data, unsigned int data_length, int d
     return ret;
 }
 
-int sll_addAtTail(slist_ref_t slist, void *data, unsigned int data_length, int data_type)
+
+static int sll_addToListSortedByData(slist_ref_t slist, void *data, unsigned int data_length, int data_type)
 {
-    return sll_addToList(slist, data, data_length, data_type);
+    struct sll_list *list = slist;
+    struct sll_node *tmp = NULL;
+    struct sll_node *p = NULL;
+    struct sll_node *c = NULL;
+    int ret = 0;
+    if ((!data) || (!list)) return -EINVAL;
+    if (!list->item_compare || ((list->sorted_flag != SORTED_BY_DCF)
+                && (list->sorted_flag != SORTED_REV_BY_DCF)))
+        return sll_addAtTail(slist, data, data_length, data_type);
+    tmp = (struct sll_node *)malloc(sizeof(struct sll_node) + data_length);
+    if (!tmp) return -ENOMEM;
+    memcpy((char *)tmp + sizeof(struct sll_node), data, data_length);
+    tmp->item_length = data_length;
+    tmp->item_type = data_type;
+    tmp->next = NULL;
+
+    pthread_mutex_lock(&list->lock);
+    for (c = list->first_entry; c != NULL; c = c->next) {
+        if ((list->sorted_flag == SORTED_BY_DCF)
+                && (list->item_compare(data, (char *)c + sizeof(struct sll_node)) < 0)) break;
+        if ((list->sorted_flag == SORTED_REV_BY_DCF)
+                && (list->item_compare(data, (char *)c + sizeof(struct sll_node)) > 0)) break;
+        p = c;
+    }
+    if (!c && !p) {
+        list->first_entry = list->last_entry = tmp;
+    }
+    else if (!c && p) {
+        list->last_entry->next = tmp;
+        list->last_entry = tmp;
+    }
+    else if (!p && c) {
+        tmp->next = list->first_entry;
+        list->first_entry = tmp;
+    }
+    else {
+        tmp->next = c;
+        p->next = tmp;
+    }
+    list->item_count++;
+    tmp->item_id = 0;
+    if (!list->data_struct) {
+        if (list->auto_inc_id_trace < SIGNED_MAX_VAL(list->auto_inc_id_trace)) {
+            list->auto_inc_id_trace++;
+            tmp->item_id = list->auto_inc_id_trace;
+        }
+    }
+    ret = tmp->item_id;
+    pthread_mutex_unlock(&list->lock);
+    return ret;
+}
+
+int sll_addToList(slist_ref_t slist, void *data, unsigned int data_length, int data_type)
+{
+    int ret = -EINVAL;
+    struct sll_list *list = slist;
+    if ((!list) || (!data)) return -EINVAL;
+    switch (list->sorted_flag) {
+        case SORTED_NONE:
+        case SORTED_BY_ID: ret = sll_addAtTail(slist, data, data_length, data_type);
+            break;
+        case SORTED_REV_BY_ID: ret = sll_addAtHead(slist, data, data_length, data_type);
+            break;
+        case SORTED_BY_DCF:
+        case SORTED_REV_BY_DCF: ret = sll_addToListSortedByData(slist, data, data_length, data_type);
+            break;
+        default: ret = sll_addAtTail(slist, data, data_length, data_type);
+    }
+    return ret;
 }
 
 int sll_removeFromHead(slist_ref_t slist, void *outbuf, int *data_type)
@@ -226,6 +296,36 @@ int sll_removeFromTail(slist_ref_t slist, void *outbuf, int *data_type)
     return length;
 }
 
+int sll_removeById(slist_ref_t slist, int id, void *outbuf, int *data_type)
+{
+    int length = -ENAVAIL;
+    struct sll_list *list = slist;
+    struct sll_node *p = NULL;
+    struct sll_node *c = NULL;
+    if (!list) return -EINVAL;
+    if (!list->first_entry) return -ENOENT;
+    pthread_mutex_lock(&list->lock);
+    for(c = list->first_entry; c != NULL; c = c->next) {
+        if (c->item_id == (unsigned int)id) break;
+        p = c;
+    }
+
+    if (c) {
+        if (!p) list->first_entry = c->next;
+        else p->next = c->next;
+
+        if (!c->next) list->last_entry = p;
+        length = c->item_length;
+        if (outbuf) memcpy(outbuf, (char *)c + sizeof(struct sll_node), length);
+        if (data_type) *data_type = c->item_type;
+
+        list->item_count--;
+        free(c);
+    }
+    pthread_mutex_unlock(&list->lock);
+    return length;
+}
+
 int sll_getListItemCount(slist_ref_t slist)
 {
     int ret = 0;
@@ -234,6 +334,37 @@ int sll_getListItemCount(slist_ref_t slist)
     ret = list->item_count;
     pthread_mutex_unlock(&list->lock);
     return ret;
+}
+
+void *sll_getDataRefById(slist_ref_t slist, int id)
+{
+    struct sll_list *list = slist;
+    struct sll_node *t;
+    void *mem = NULL;
+    if (!list) {
+        errno = EINVAL;
+        return NULL;
+    }
+    pthread_mutex_lock(&list->lock);
+    for(t = list->first_entry; t != NULL; t = t->next) {
+        if (t->item_id == (unsigned int)id) break;
+    }
+
+    if(!t) errno = ENAVAIL;
+    else mem = (char *)t + sizeof(struct sll_node);
+    pthread_mutex_unlock(&list->lock);
+
+    return mem;
+}
+
+int sll_getIdByDataRef(void *data)
+{
+    struct sll_node *t;
+    int id = 0;
+    if (!data) return -EINVAL;
+    t = (struct sll_node *)((char *)data -  sizeof(struct sll_node));
+    id = (int)(t->item_id);
+    return id;
 }
 
 static void sll_swap(slist_ref_t slist, struct sll_node *prev)
@@ -257,7 +388,7 @@ static void sll_swap(slist_ref_t slist, struct sll_node *prev)
     if (cur && !cur->next) list->last_entry = cur;
 }
 
-int sll_sortList(slist_ref_t slist, compare_t compare, int reverse)
+int sll_sortList(slist_ref_t slist, sllist_sort_type_t sort_type)
 {
     struct sll_list *list = slist;
     struct sll_node *cur = NULL;
@@ -265,6 +396,10 @@ int sll_sortList(slist_ref_t slist, compare_t compare, int reverse)
     int swap = 0, count, comp, i;
     void *cur_data, *next_data;
     if (!list) return -EINVAL;
+    if (sort_type == SORTED_NONE) {
+        list->sorted_flag = sort_type;
+        return 0;
+    }
     if (!list->first_entry) return -ENOENT;
     pthread_mutex_lock(&list->lock);
 
@@ -275,13 +410,14 @@ int sll_sortList(slist_ref_t slist, compare_t compare, int reverse)
         swap = 0;
         cur_data = (char *)cur + sizeof(struct sll_node);
         next_data = (char *)(cur->next) + sizeof(struct sll_node);
-        if (compare) {
-            comp = compare(cur_data, next_data);
-            if (((comp > 0) && (!reverse)) || ((comp < 0) && reverse)) swap = 1;
+        if (list->item_compare  && ((sort_type == SORTED_BY_DCF) || (sort_type == SORTED_REV_BY_DCF))) {
+            comp = list->item_compare(cur_data, next_data);
+            if (((comp > 0) && (sort_type == SORTED_BY_DCF))
+                    || ((comp < 0) && (sort_type == SORTED_REV_BY_DCF))) swap = 1;
         }
         else {
-            if (((*((unsigned int *)cur_data) > *((unsigned int *)next_data)) && !reverse)
-                    || ((*((unsigned int *)cur_data) < *((unsigned int *)next_data)) && reverse)) swap = 1;
+            if (((cur->item_id > cur->next->item_id) && (sort_type == SORTED_BY_ID))
+                    || ((cur->item_id < cur->next->item_id) && (sort_type == SORTED_REV_BY_ID))) swap = 1;
         }
 
         if (swap) {
@@ -291,6 +427,7 @@ int sll_sortList(slist_ref_t slist, compare_t compare, int reverse)
         }
         prev = cur;
     }
+    list->sorted_flag = sort_type;
     pthread_mutex_unlock(&list->lock);
     return 0;
 }
