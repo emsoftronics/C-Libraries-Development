@@ -39,10 +39,10 @@ ringbuf_t *rb_create(size_t maxblocks, size_t blocksize)
     rb->max_length = maxblocks;
     rb->block_size = blocksize;
 
-    if (pthread_mutexattr_init(&attr) < 0) goto mutex_error1;
-    if (pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE) < 0) goto mutex_error2;
-    if (pthread_mutex_init( &rb->lock, &attr) < 0) goto mutex_error2;
-
+    if (pthread_mutexattr_init(&attr) != 0) goto mutex_error1;
+    if (pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE) != 0) goto mutex_error2;
+    if (pthread_mutex_init( &rb->lock, &attr) != 0) goto mutex_error2;
+    pthread_mutexattr_destroy(&attr);
     return rb;
 mutex_error2:
     pthread_mutexattr_destroy(&attr);
