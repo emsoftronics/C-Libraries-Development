@@ -133,6 +133,7 @@ int sll_addAtTail(slist_ref_t slist, void *data, unsigned int data_length, int d
         }
     }
     ret = list->last_entry->item_id;
+    if (list->sorted_flag != SORTED_BY_ID) list->sorted_flag = SORTED_NONE;
     pthread_mutex_unlock(&list->lock);
     return ret;
 }
@@ -163,6 +164,7 @@ int sll_addAtHead(slist_ref_t slist, void *data, unsigned int data_length, int d
         }
     }
     ret = list->first_entry->item_id;
+    if (list->sorted_flag != SORTED_REV_BY_ID) list->sorted_flag = SORTED_NONE;
     pthread_mutex_unlock(&list->lock);
     return ret;
 }
