@@ -18,6 +18,7 @@
 
 #include <pthread.h>
 #include <errno.h>
+#include "looperthread.h"
 
 struct lt_looper {
     pthread_t thread;
@@ -30,7 +31,7 @@ struct lt_looper {
     unsigned char thread_joinable;
     unsigned char thread_suspended;
     unsigned char reserved;
-}
+};
 
 static void *lt_threadHandler(void *context)
 {
@@ -62,7 +63,7 @@ lt_looper_ref_t lt_createLooper(lt_loop_handler_t loop_handler, void *handler_ar
         goto pthread_error;
     }
     else {
-        looper->thread_joinable = 1
+        looper->thread_joinable = 1;
     }
     pthread_attr_destroy(&tattr);
     pthread_mutexattr_destroy(&attr);
